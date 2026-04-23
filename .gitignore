@@ -1,0 +1,70 @@
+# Environment
+.env
+.env.*
+
+# Xcode
+build/
+*.pbxuser
+!default.pbxuser
+*.mode1v3
+!default.mode1v3
+*.mode2v3
+!default.mode2v3
+*.perspectivev3
+!default.perspectivev3
+xcuserdata/
+*.xccheckout
+*.moved-aside
+DerivedData/
+*.hmap
+*.ipa
+*.xcuserstate
+*.xcscmblueprint
+*.xcsettings
+
+# Swift Package Manager
+.build/
+.swiftpm/
+Packages/
+Package.resolved
+!Translit.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/Package.resolved
+
+# CocoaPods
+Pods/
+*.xcworkspace
+!default.xcworkspace
+!Translit.xcodeproj/project.xcworkspace/
+!Translit.xcodeproj/project.xcworkspace/contents.xcworkspacedata
+!Translit.xcodeproj/project.xcworkspace/xcshareddata/
+!Translit.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/
+!Translit.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/Package.resolved
+
+# Carthage
+Carthage/Build/
+Carthage/Checkouts/
+
+# fastlane
+fastlane/report.xml
+fastlane/Preview.html
+fastlane/screenshots/**/*.png
+fastlane/test_output
+
+# Code Injection
+iOSInjectionProject/
+
+# Playgrounds
+timeline.xctimeline
+playground.xcworkspace
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+._*
+.Spotlight-V100
+.Trashes
+.DocumentRevisions-V100
+.fseventsd
+.TemporaryItems
+.VolumeIcon.icns
+.com.apple.timemachine.donotpresent
