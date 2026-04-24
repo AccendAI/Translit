@@ -11,7 +11,7 @@ enum AIServiceError: LocalizedError {
     var errorDescription: String? {
         switch self {
         case .emptyResponse:
-            return "The on-device model returned an empty response"
+            return "The model returned an empty response"
         case let .localInferenceFailed(message):
             return message
         }

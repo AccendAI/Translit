@@ -25,7 +25,7 @@ struct SettingsTabView: View {
                         systemImage: "cpu",
                         label: "On-Device Model",
                         value: store.localModelStatusText
-                    ) {}
+                    )
                 }
                 .padding(.horizontal, 20)
                 .padding(.top, 20)
