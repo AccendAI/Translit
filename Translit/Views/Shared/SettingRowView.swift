@@ -5,9 +5,9 @@ struct SettingRowView: View {
     let label: String
     let value: String?
     let isExternal: Bool
-    let action: () -> Void
+    let action: (() -> Void)?
 
-    init(systemImage: String, label: String, value: String? = nil, isExternal: Bool = false, action: @escaping () -> Void) {
+    init(systemImage: String, label: String, value: String? = nil, isExternal: Bool = false, action: (() -> Void)? = nil) {
         self.systemImage = systemImage
         self.label = label
         self.value = value
@@ -16,39 +16,47 @@ struct SettingRowView: View {
     }
 
     var body: some View {
-        Button(action: action) {
-            HStack(spacing: 14) {
-                ZStack {
-                    RoundedRectangle(cornerRadius: AppTheme.Radius.medium, style: .continuous)
-                        .fill(AppColors.badgeBackground)
-                    Image(systemName: systemImage)
-                        .font(AppTypography.ui(size: 13, weight: .semibold))
-                        .foregroundStyle(AppColors.tint)
+        let content = HStack(spacing: 14) {
+            ZStack {
+                RoundedRectangle(cornerRadius: AppTheme.Radius.medium, style: .continuous)
+                    .fill(AppColors.badgeBackground)
+                Image(systemName: systemImage)
+                    .font(AppTypography.ui(size: 13, weight: .semibold))
+                    .foregroundStyle(AppColors.tint)
+            }
+            .frame(width: 36, height: 36)
+
+            VStack(alignment: .leading, spacing: 2) {
+                Text(label)
+                    .font(AppTypography.ui(size: 13.5, weight: .medium))
+                    .foregroundStyle(.primary)
+
+                if let value {
+                    Text(value)
+                        .font(AppTypography.ui(size: 12))
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
                 }
-                .frame(width: 36, height: 36)
+            }
 
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(label)
-                        .font(AppTypography.ui(size: 13.5, weight: .medium))
-                        .foregroundStyle(.primary)
+            Spacer()
 
-                    if let value {
-                        Text(value)
-                            .font(AppTypography.ui(size: 12))
-                            .foregroundStyle(.secondary)
-                            .lineLimit(1)
-                    }
-                }
-
-                Spacer()
-
+            if let action {
                 Image(systemName: isExternal ? "arrow.up.right" : "chevron.right")
                     .font(AppTypography.ui(size: 10, weight: .semibold))
                     .foregroundStyle(.tertiary)
             }
-            .padding(16)
-            .appGlassSurface(radius: AppTheme.Radius.card)
         }
-        .buttonStyle(.plain)
+        .padding(16)
+        .appGlassSurface(radius: AppTheme.Radius.card)
+
+        if let action {
+            Button(action: action) {
+                content
+            }
+            .buttonStyle(.plain)
+        } else {
+            content
+        }
     }
 }

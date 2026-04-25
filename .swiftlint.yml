@@ -1,0 +1,37 @@
+disabled_rules:
+  - trailing_whitespace
+  - trailing_comma
+
+opt_in_rules:
+  - empty_count
+  - force_unwrapping
+  - modifier_order
+  - redundant_nil_coalescing
+  - unneeded_parentheses_in_closure_argument
+  - vertical_whitespace_closing_braces
+
+included:
+  - Translit
+
+excluded:
+  - TranslitTests
+  - TranslitUITests
+  - DerivedData
+
+line_length:
+  warning: 160
+  error: 200
+
+function_body_length:
+  warning: 60
+  error: 100
+
+type_body_length:
+  warning: 300
+  error: 400
+
+cyclomatic_complexity:
+  warning: 10
+  error: 20
+
+reporter: "xcode"
