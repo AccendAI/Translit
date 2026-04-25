@@ -1,0 +1,5 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Questions & Discussions
+    url: https://github.com/mphassani/Translit/discussions
+    about: Please use Discussions for general questions, ideas, or help.
