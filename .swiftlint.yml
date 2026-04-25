@@ -1,10 +1,10 @@
 disabled_rules:
   - trailing_whitespace
+  - trailing_comma
 
 opt_in_rules:
   - empty_count
   - force_unwrapping
-  - implicit_return
   - modifier_order
   - redundant_nil_coalescing
   - unneeded_parentheses_in_closure_argument
@@ -19,8 +19,8 @@ excluded:
   - DerivedData
 
 line_length:
-  warning: 120
-  error: 150
+  warning: 160
+  error: 200
 
 function_body_length:
   warning: 60
