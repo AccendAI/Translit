@@ -6,6 +6,8 @@ enum AppConstants {
     nonisolated static let userLanguageKey = "user_language"
     nonisolated static let userThemeKey = "user_theme"
     nonisolated static let preparedLocalModelKey = "prepared_local_model"
+    nonisolated static let selectedModelIDKey = "selected_model_id"
+    nonisolated static let downloadedModelIDsKey = "downloaded_model_ids"
     nonisolated static let chatHistoryKey = "chat_history"
     nonisolated static let conversationStartKey = "conversation_start"
     nonisolated static let dictionaryKey = "user_dictionary_entries_v1"

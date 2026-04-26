@@ -1,10 +1,24 @@
 import SwiftUI
 
+private enum TranslateAlertRoute: Identifiable {
+    case newConversation
+    case modelRequired
+
+    var id: String {
+        switch self {
+        case .newConversation:
+            return "new-conversation"
+        case .modelRequired:
+            return "model-required"
+        }
+    }
+}
+
 struct TranslateTabView: View {
     @Environment(AppStore.self) private var store
 
     @State private var draft = ""
-    @State private var showNewConversationAlert = false
+    @State private var activeAlert: TranslateAlertRoute?
     @State private var keyboardScrollTask: Task<Void, Never>?
     @FocusState private var isInputFocused: Bool
 
@@ -79,22 +93,36 @@ struct TranslateTabView: View {
                 if !store.currentConversation.isEmpty {
                     ToolbarItem(placement: .primaryAction) {
                         Button {
-                            showNewConversationAlert = true
+                            activeAlert = .newConversation
                         } label: {
                             Image(systemName: "plus.circle")
                         }
                     }
                 }
             }
-            .alert("New Conversation", isPresented: $showNewConversationAlert) {
-                Button("Cancel", role: .cancel) {}
-                Button("Clear", role: .destructive) {
-                    Task {
-                        await store.startNewConversation()
-                    }
+            .alert(item: $activeAlert) { route in
+                switch route {
+                case .newConversation:
+                    return Alert(
+                        title: Text("New Conversation"),
+                        message: Text("Are you sure you want to start a new conversation? This will clear all messages."),
+                        primaryButton: .destructive(Text("Clear")) {
+                            Task {
+                                await store.startNewConversation()
+                            }
+                        },
+                        secondaryButton: .cancel()
+                    )
+                case .modelRequired:
+                    return Alert(
+                        title: Text("No Model Downloaded"),
+                        message: Text("Download an on-device model before sending your first translation."),
+                        primaryButton: .default(Text("Download Model")) {
+                            store.presentModelManagement()
+                        },
+                        secondaryButton: .cancel()
+                    )
                 }
-            } message: {
-                Text("Are you sure you want to start a new conversation? This will clear all messages.")
             }
             .onDisappear {
                 keyboardScrollTask?.cancel()
@@ -156,7 +184,16 @@ struct TranslateTabView: View {
     }
 
     private func sendDraft() {
-        let text = draft
+        guard store.hasAnyDownloadedModels else {
+            activeAlert = .modelRequired
+            return
+        }
+
+        let text = draft.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !text.isEmpty else {
+            return
+        }
+
         draft = ""
 
         Task {

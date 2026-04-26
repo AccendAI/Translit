@@ -21,6 +21,14 @@ struct UserSettings: Codable, Equatable {
     var languageCode: String?
     var themeMode: ThemeMode
     var hasPreparedLocalModel: Bool
+    var selectedModelID: String?
+    var downloadedModelIDs: [String]
 
-    static let `default` = UserSettings(languageCode: nil, themeMode: .system, hasPreparedLocalModel: false)
+    static let `default` = UserSettings(
+        languageCode: nil,
+        themeMode: .system,
+        hasPreparedLocalModel: false,
+        selectedModelID: nil,
+        downloadedModelIDs: []
+    )
 }

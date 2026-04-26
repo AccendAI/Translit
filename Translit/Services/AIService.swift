@@ -26,13 +26,14 @@ actor AIService {
     }
 
     func prepareModel(
+        modelID: String? = nil,
         progressHandler: @escaping @Sendable (Double) -> Void
     ) async throws {
-        let modelID = configuration.primaryModelID
+        let resolvedModelID = modelID ?? configuration.primaryModelID
         _ = try await LLMModelFactory.shared.loadContainer(
             from: HubClient.default,
             using: TokenizersLoader(),
-            configuration: .init(id: modelID),
+            configuration: .init(id: resolvedModelID),
             progressHandler: { progress in
                 progressHandler(progress.fractionCompleted)
             }
@@ -41,12 +42,13 @@ actor AIService {
 
     func sendMessage(
         _ userMessage: String,
-        targetLanguage: Language
+        targetLanguage: Language,
+        modelID: String? = nil
     ) async throws -> MessageSendResult {
         try await sendMessage(
             userMessage,
             targetLanguage: targetLanguage,
-            modelID: configuration.primaryModelID
+            modelID: modelID ?? configuration.primaryModelID
         )
     }
 

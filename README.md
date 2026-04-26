@@ -4,6 +4,10 @@
 
 Translit is an open-source iOS app that helps you transliterate and translate text into native scripts using local Gemma models. After a one-time model download, everything runs on your device — no network required, no data sent to external servers, and no subscriptions.
 
+<p align="center">
+  <img src="docs/assets/translit_hero_dark.png" alt="Translit chat screen showing romanized Persian text converted into Persian script" width="360">
+</p>
+
 ## Features
 
 - **On-Device AI** — Transliteration and translation powered by local [Gemma](https://ai.google.dev/gemma) models via [MLX](https://github.com/ml-explore/mlx-swift). No network connection needed after the initial model download.

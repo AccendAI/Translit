@@ -8,6 +8,7 @@ final class AppStore {
     private let chatStorage: ChatStorageService
     private let dictionaryStorage: DictionaryStorageService
     private let aiService: AIService
+    private let modelStorage: ModelStorageService
     private let configuration: AppConfiguration
 
     var isReady = false
@@ -18,9 +19,13 @@ final class AppStore {
     var dictionaryEntries: [DictionaryEntry] = []
     var isSendingMessage = false
     var toast: ToastMessage?
-    var currentModelID: String
-    var hasPreparedLocalModel = false
+    var isModelManagementPresented = false
+    var availableModels: [OnDeviceModel] = []
+    var selectedModelID: String
+    var downloadedModelIDs: [String] = []
     var isPreparingLocalModel = false
+    var activeModelOperationID: String?
+    var deletingModelID: String?
     var modelPreparationErrorMessage: String?
     var modelDownloadProgress: Double = 0.0
 
@@ -28,8 +33,20 @@ final class AppStore {
         selectedLanguage != nil
     }
 
+    var hasAnyDownloadedModels: Bool {
+        !downloadedModelIDs.isEmpty
+    }
+
+    var hasPreparedLocalModel: Bool {
+        downloadedModelIDs.contains(selectedModelID)
+    }
+
+    var selectedModel: OnDeviceModel {
+        availableModels.first(where: { $0.id == selectedModelID }) ?? OnDeviceModel.details(for: selectedModelID)
+    }
+
     var localModelStatusText: String {
-        modelDisplayName(for: currentModelID)
+        hasAnyDownloadedModels ? selectedModel.displayName : "No model downloaded"
     }
 
     init(
@@ -37,14 +54,17 @@ final class AppStore {
         chatStorage: ChatStorageService = ChatStorageService(),
         dictionaryStorage: DictionaryStorageService = DictionaryStorageService(),
         configuration: AppConfiguration = AppConfiguration(),
-        aiService: AIService? = nil
+        aiService: AIService? = nil,
+        modelStorage: ModelStorageService = ModelStorageService()
     ) {
         self.settingsStorage = settingsStorage
         self.chatStorage = chatStorage
         self.dictionaryStorage = dictionaryStorage
         self.configuration = configuration
         self.aiService = aiService ?? AIService(configuration: configuration)
-        self.currentModelID = configuration.primaryModelID
+        self.modelStorage = modelStorage
+        self.availableModels = configuration.availableModels
+        self.selectedModelID = configuration.primaryModelID
 
         Task {
             await initialize()
@@ -67,8 +87,21 @@ final class AppStore {
         currentConversation = resolvedConversation
         historyEntries = makeHistoryEntries(from: resolvedHistory)
         dictionaryEntries = resolvedEntries
-        hasPreparedLocalModel = resolvedSettings.hasPreparedLocalModel
-        currentModelID = configuration.primaryModelID
+        let normalizedDownloadedModelIDs = normalizedDownloadedModelIDs(from: resolvedSettings.downloadedModelIDs)
+        downloadedModelIDs = normalizedDownloadedModelIDs
+        selectedModelID = resolvedSelectedModelID(
+            preferredModelID: resolvedSettings.selectedModelID,
+            downloadedModelIDs: normalizedDownloadedModelIDs
+        )
+
+        if resolvedSettings.selectedModelID != selectedModelID {
+            await settingsStorage.saveSelectedModelID(selectedModelID)
+        }
+
+        if resolvedSettings.downloadedModelIDs != normalizedDownloadedModelIDs {
+            await settingsStorage.saveDownloadedModelIDs(normalizedDownloadedModelIDs)
+        }
+
         isReady = true
     }
 
@@ -82,8 +115,44 @@ final class AppStore {
         themeMode = mode
     }
 
-    func prepareLocalModel() async {
-        guard !hasPreparedLocalModel else {
+    func presentModelManagement() {
+        isModelManagementPresented = true
+    }
+
+    func dismissModelManagement() {
+        isModelManagementPresented = false
+    }
+
+    func isModelDownloaded(_ modelID: String) -> Bool {
+        downloadedModelIDs.contains(modelID)
+    }
+
+    func isPreparingModel(_ modelID: String) -> Bool {
+        isPreparingLocalModel && activeModelOperationID == modelID
+    }
+
+    func isDeletingModel(_ modelID: String) -> Bool {
+        deletingModelID == modelID
+    }
+
+    func selectModel(_ modelID: String) async {
+        guard availableModels.contains(where: { $0.id == modelID }) else {
+            return
+        }
+
+        guard isModelDownloaded(modelID) else {
+            return
+        }
+
+        selectedModelID = modelID
+        await settingsStorage.saveSelectedModelID(modelID)
+        queueToast(style: .success, title: "Model selected", subtitle: "\(selectedModel.displayName) is ready to use")
+    }
+
+    func prepareLocalModel(modelID: String? = nil) async {
+        let targetModelID = modelID ?? selectedModelID
+
+        guard availableModels.contains(where: { $0.id == targetModelID }) else {
             return
         }
 
@@ -91,23 +160,30 @@ final class AppStore {
             return
         }
 
+        guard !isModelDownloaded(targetModelID) else {
+            return
+        }
+
         isPreparingLocalModel = true
+        activeModelOperationID = targetModelID
         modelPreparationErrorMessage = nil
         modelDownloadProgress = 0.0
 
         do {
-            try await aiService.prepareModel { [weak self] progress in
+            try await aiService.prepareModel(modelID: targetModelID) { [weak self] progress in
                 Task { @MainActor [weak self] in
                     self?.modelDownloadProgress = progress
                 }
             }
-            currentModelID = configuration.primaryModelID
-            hasPreparedLocalModel = true
-            await settingsStorage.savePreparedLocalModel(true)
+            selectedModelID = targetModelID
+            if !downloadedModelIDs.contains(targetModelID) {
+                downloadedModelIDs.append(targetModelID)
+            }
+            await persistModelState()
             queueToast(
                 style: .success,
                 title: "Model ready",
-                subtitle: "\(localModelStatusText) is ready for on-device translation"
+                subtitle: "\(selectedModel.displayName) is ready for on-device translation"
             )
         } catch let error as AIServiceError {
             modelPreparationErrorMessage = error.errorDescription
@@ -119,7 +195,46 @@ final class AppStore {
         }
 
         isPreparingLocalModel = false
+        activeModelOperationID = nil
         modelDownloadProgress = 0.0
+    }
+
+    func deleteDownloadedModel(_ modelID: String) async {
+        guard isModelDownloaded(modelID) else {
+            return
+        }
+
+        guard deletingModelID == nil else {
+            return
+        }
+
+        deletingModelID = modelID
+        modelPreparationErrorMessage = nil
+
+        do {
+            try await modelStorage.deleteModel(id: modelID)
+            downloadedModelIDs.removeAll { $0 == modelID }
+
+            if selectedModelID == modelID {
+                selectedModelID = resolvedSelectedModelID(
+                    preferredModelID: nil,
+                    downloadedModelIDs: downloadedModelIDs
+                )
+            }
+
+            await persistModelState()
+            queueToast(
+                style: .success,
+                title: "Model deleted",
+                subtitle: "\(OnDeviceModel.details(for: modelID).displayName) was removed from this device"
+            )
+        } catch {
+            let subtitle = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
+            modelPreparationErrorMessage = subtitle
+            queueToast(style: .error, title: "Failed to delete model", subtitle: subtitle)
+        }
+
+        deletingModelID = nil
     }
 
     func sendMessage(_ text: String) async {
@@ -152,8 +267,13 @@ final class AppStore {
         isSendingMessage = true
 
         do {
-            let response = try await aiService.sendMessage(trimmed, targetLanguage: language)
-            currentModelID = response.modelID ?? configuration.primaryModelID
+            let response = try await aiService.sendMessage(
+                trimmed,
+                targetLanguage: language,
+                modelID: selectedModelID
+            )
+            selectedModelID = response.modelID ?? selectedModelID
+            await settingsStorage.saveSelectedModelID(selectedModelID)
             currentConversation.append(ChatMessage.assistant(response.content))
             await persistConversation()
             copyToClipboard(response.content, title: "Response copied to clipboard")
@@ -285,22 +405,38 @@ final class AppStore {
         queueToast(style: .error, title: "Failed to get AI response", subtitle: subtitle)
     }
 
-    private func modelDisplayName(for modelID: String) -> String {
-        let normalized = modelID.lowercased()
+    private func persistModelState() async {
+        await settingsStorage.saveSelectedModelID(selectedModelID)
+        await settingsStorage.saveDownloadedModelIDs(downloadedModelIDs)
+    }
 
-        if normalized.contains("gemma-4-e2b") {
-            return "Gemma 4 E2B"
+    private func normalizedDownloadedModelIDs(from modelIDs: [String]) -> [String] {
+        let supportedModelIDs = Set(availableModels.map(\.id))
+        var seen: Set<String> = []
+
+        return modelIDs.filter { modelID in
+            guard supportedModelIDs.contains(modelID) else {
+                return false
+            }
+
+            return seen.insert(modelID).inserted
+        }
+    }
+
+    private func resolvedSelectedModelID(
+        preferredModelID: String?,
+        downloadedModelIDs: [String]
+    ) -> String {
+        if let preferredModelID,
+           availableModels.contains(where: { $0.id == preferredModelID }) {
+            return preferredModelID
         }
 
-        if normalized.contains("gemma-4-e4b") {
-            return "Gemma 4 E4B"
+        if let downloadedModelID = downloadedModelIDs.first {
+            return downloadedModelID
         }
 
-        if normalized.contains("gemma-3n-e2b") {
-            return "Gemma 3n E2B"
-        }
-
-        return modelID.replacingOccurrences(of: "mlx-community/", with: "")
+        return configuration.primaryModelID
     }
 
     private func queueToast(style: ToastStyle, title: String, subtitle: String?) {
