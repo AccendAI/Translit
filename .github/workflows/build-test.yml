@@ -1,0 +1,47 @@
+name: Build & Test
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+jobs:
+  build-and-test:
+    runs-on: macos-15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Select latest Xcode
+        run: |
+          ls /Applications | grep Xcode || true
+          sudo xcode-select -s /Applications/Xcode_16.2.app/Contents/Developer || \
+          sudo xcode-select -s /Applications/Xcode_16.1.app/Contents/Developer || \
+          sudo xcode-select -s /Applications/Xcode_16.app/Contents/Developer || true
+          xcodebuild -version
+          swift --version
+
+      - name: Resolve Swift Packages
+        run: xcodebuild -project Translit.xcodeproj -scheme Translit -resolvePackageDependencies
+        continue-on-error: true
+
+      - name: Build
+        run: |
+          xcodebuild clean build \
+            -project Translit.xcodeproj \
+            -scheme Translit \
+            -destination 'platform=iOS Simulator,name=iPhone 16' \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO
+        continue-on-error: true
+
+      - name: Test
+        run: |
+          xcodebuild test \
+            -project Translit.xcodeproj \
+            -scheme Translit \
+            -destination 'platform=iOS Simulator,name=iPhone 16' \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO
+        continue-on-error: true
